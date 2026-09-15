@@ -9,7 +9,22 @@
     <style>
         body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f4f4f9; }
         h1 { text-align: center; color: #333; margin-bottom: 10px; }
-        p.subtitle { text-align: center; color: #666; margin-bottom: 30px; }
+        p.subtitle { text-align: center; color: #666; margin-bottom: 20px; }
+        
+        /* PANTALLA DE DIAGNÓSTICO EN VIVO */
+        #debug-box {
+            max-width: 600px;
+            margin: 0 auto 20px auto;
+            background: #222;
+            color: #0f0;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 13px;
+            white-space: pre-wrap;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
         .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; max-width: 1200px; margin: 0 auto; }
         .card { background: #fff; border-radius: 8px; padding: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); text-align: center; display: flex; flex-direction: column; justify-content: space-between; }
         
@@ -81,6 +96,9 @@
     <h1>RelojesOscar</h1>
     <p class="subtitle">Toca cualquier imagen para ampliarla. Toca "Consultar por WhatsApp" para enviar el modelo y la foto.</p>
 
+    <!-- CAJA DONDE VEREMOS EL ERROR O PASO A PASO -->
+    <div id="debug-box">Iniciando sistema...</div>
+
     <div class="grid" id="catalogo-productos"></div>
 
     <!-- MODAL -->
@@ -90,24 +108,56 @@
     </div>
 
     <script>
+        const debugBox = document.getElementById("debug-box");
+        function log(mensaje) {
+            console.log(mensaje);
+            debugBox.innerText += "\n> " + mensaje;
+        }
+
+        log("Verificando librería XLSX...");
+        if (typeof XLSX === 'undefined') {
+            log("❌ ERROR CRÍTICO: La librería XLSX no se pudo cargar desde el CDN.");
+        } else {
+            log("✔️ Librería XLSX cargada correctamente.");
+        }
+
         const numeroWhatsApp = "5491159828985";
         const contenedor = document.getElementById("catalogo-productos");
-        const baseUrl = window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1);
-
-        // Lee directamente el archivo Descripcion.xlsx de tu repositorio
-        fetch('Descripcion.xlsx')
-            .then(response => response.arrayBuffer())
+        
+        log("Intentando descargar 'Descripcion.xlsx'...");
+        
+        // Usamos ./ para asegurar que busque en la misma carpeta del repositorio
+        fetch('./Descripcion.xlsx')
+            .then(response => {
+                log("Respuesta del servidor recibida. Status: " + response.status);
+                if (!response.ok) {
+                    throw new Error("No se encontró el archivo 'Descripcion.xlsx' (Código HTTP: " + response.status + ")");
+                }
+                return response.arrayBuffer();
+            })
             .then(data => {
+                log("✔️ Archivo descargado con éxito. Procesando Excel...");
                 const workbook = XLSX.read(data, { type: 'array' });
+                log("Hojas encontradas en el Excel: " + workbook.SheetNames.join(", "));
+                
                 const firstSheetName = workbook.SheetNames[0];
                 const worksheet = workbook.Sheets[firstSheetName];
                 
                 const productos = XLSX.utils.sheet_to_json(worksheet);
+                log("✔️ Productos leídos: " + productos.length);
 
-                productos.forEach(prod => {
-                    const imagen = prod.imagen ? prod.imagen.trim() : '';
-                    const nombre = prod.nombre ? prod.nombre.trim() : 'Producto';
-                    let precio = prod.precio ? prod.precio : 'Consultar';
+                if (productos.length === 0) {
+                    log("⚠️ El Excel está vacío o las columnas no tienen formato de tabla.");
+                    return;
+                }
+
+                // Si todo va bien, ocultamos la caja negra de diagnóstico
+                debugBox.style.display = "none";
+
+                productos.forEach((prod, index) => {
+                    const imagen = prod.imagen ? String(prod.imagen).trim() : '';
+                    const nombre = prod.nombre ? String(prod.nombre).trim() : 'Producto';
+                    let precio = prod.precio !== undefined ? prod.precio : 'Consultar';
                     
                     if (typeof precio === 'number') {
                         precio = '$' + precio.toLocaleString('es-AR');
@@ -115,9 +165,8 @@
                         precio = '$' + precio;
                     }
 
-                    const descripcion = prod.descripcion ? prod.descripcion.trim() : '';
-
-                    const urlFoto = baseUrl + `img/${imagen}`;
+                    const descripcion = prod.descripcion ? String(prod.descripcion).trim() : '';
+                    const urlFoto = window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1) + `img/${imagen}`;
                     const textoMensaje = encodeURIComponent(`Hola, me interesa el producto: ${nombre} (${precio}). Vi esta foto: ${urlFoto}`);
 
                     const card = document.createElement("div");
@@ -134,9 +183,12 @@
                     contenedor.appendChild(card);
                 });
             })
-            .catch(error => console.error("Error al leer el archivo Excel:", error));
+            .catch(error => {
+                log("❌ ERROR CAPTURADO: " + error.message);
+                console.error(error);
+            });
 
-        // Lógica del Modal (Ventana flotante)
+        // Lógica del Modal
         const modal = document.getElementById("imageModal");
         const modalImg = document.getElementById("modalImg");
         const closeModal = document.getElementById("closeModal");
