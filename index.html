@@ -4,14 +4,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RelojesOscar</title>
-    <!-- Librería para leer archivos Excel (.xlsx) directamente en la web -->
-    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/xlsx.full.min.js"></script>
+    <!-- Librería XLSX principal (cdnjs - más compatible) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Respaldo automático por si el navegador bloquea la primera -->
+    <script>
+        if (typeof XLSX === 'undefined') {
+            var backupScript = document.createElement('script');
+            backupScript.src = 'https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js';
+            document.head.appendChild(backupScript);
+        }
+    </script>
     <style>
         body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f4f4f9; }
         h1 { text-align: center; color: #333; margin-bottom: 10px; }
         p.subtitle { text-align: center; color: #666; margin-bottom: 20px; }
         
-        /* PANTALLA DE DIAGNÓSTICO EN VIVO */
         #debug-box {
             max-width: 600px;
             margin: 0 auto 20px auto;
@@ -96,7 +103,7 @@
     <h1>RelojesOscar</h1>
     <p class="subtitle">Toca cualquier imagen para ampliarla. Toca "Consultar por WhatsApp" para enviar el modelo y la foto.</p>
 
-    <!-- CAJA DONDE VEREMOS EL ERROR O PASO A PASO -->
+    <!-- CAJA DE DIAGNÓSTICO -->
     <div id="debug-box">Iniciando sistema...</div>
 
     <div class="grid" id="catalogo-productos"></div>
@@ -114,79 +121,82 @@
             debugBox.innerText += "\n> " + mensaje;
         }
 
-        log("Verificando librería XLSX...");
-        if (typeof XLSX === 'undefined') {
-            log("❌ ERROR CRÍTICO: La librería XLSX no se pudo cargar desde el CDN.");
-        } else {
-            log("✔️ Librería XLSX cargada correctamente.");
-        }
+        // Damos un pequeño respiro para que el respaldo cargue si hizo falta
+        setTimeout(() => {
+            log("Verificando librería XLSX...");
+            if (typeof XLSX === 'undefined') {
+                log("❌ ERROR CRÍTICO: La librería XLSX sigue bloqueada. Revisa tu AdBlock.");
+                return;
+            } else {
+                log("✔️ Librería XLSX cargada correctamente.");
+            }
 
-        const numeroWhatsApp = "5491159828985";
-        const contenedor = document.getElementById("catalogo-productos");
-        
-        log("Intentando descargar 'Descripcion.xlsx'...");
-        
-        // Usamos ./ para asegurar que busque en la misma carpeta del repositorio
-        fetch('./Descripcion.xlsx')
-            .then(response => {
-                log("Respuesta del servidor recibida. Status: " + response.status);
-                if (!response.ok) {
-                    throw new Error("No se encontró el archivo 'Descripcion.xlsx' (Código HTTP: " + response.status + ")");
-                }
-                return response.arrayBuffer();
-            })
-            .then(data => {
-                log("✔️ Archivo descargado con éxito. Procesando Excel...");
-                const workbook = XLSX.read(data, { type: 'array' });
-                log("Hojas encontradas en el Excel: " + workbook.SheetNames.join(", "));
-                
-                const firstSheetName = workbook.SheetNames[0];
-                const worksheet = workbook.Sheets[firstSheetName];
-                
-                const productos = XLSX.utils.sheet_to_json(worksheet);
-                log("✔️ Productos leídos: " + productos.length);
-
-                if (productos.length === 0) {
-                    log("⚠️ El Excel está vacío o las columnas no tienen formato de tabla.");
-                    return;
-                }
-
-                // Si todo va bien, ocultamos la caja negra de diagnóstico
-                debugBox.style.display = "none";
-
-                productos.forEach((prod, index) => {
-                    const imagen = prod.imagen ? String(prod.imagen).trim() : '';
-                    const nombre = prod.nombre ? String(prod.nombre).trim() : 'Producto';
-                    let precio = prod.precio !== undefined ? prod.precio : 'Consultar';
+            const numeroWhatsApp = "5491159828985";
+            const contenedor = document.getElementById("catalogo-productos");
+            
+            log("Intentando descargar 'Descripcion.xlsx'...");
+            
+            fetch('./Descripcion.xlsx')
+                .then(response => {
+                    log("Respuesta del servidor recibida. Status: " + response.status);
+                    if (!response.ok) {
+                        throw new Error("No se encontró el archivo 'Descripcion.xlsx' (Código HTTP: " + response.status + ")");
+                    }
+                    return response.arrayBuffer();
+                })
+                .then(data => {
+                    log("✔️ Archivo descargado con éxito. Procesando Excel...");
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    log("Hojas encontradas: " + workbook.SheetNames.join(", "));
                     
-                    if (typeof precio === 'number') {
-                        precio = '$' + precio.toLocaleString('es-AR');
-                    } else {
-                        precio = '$' + precio;
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    
+                    const productos = XLSX.utils.sheet_to_json(worksheet);
+                    log("✔️ Productos leídos: " + productos.length);
+
+                    if (productos.length === 0) {
+                        log("⚠️ El Excel está vacío o las columnas no tienen formato de tabla.");
+                        return;
                     }
 
-                    const descripcion = prod.descripcion ? String(prod.descripcion).trim() : '';
-                    const urlFoto = window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1) + `img/${imagen}`;
-                    const textoMensaje = encodeURIComponent(`Hola, me interesa el producto: ${nombre} (${precio}). Vi esta foto: ${urlFoto}`);
+                    // Ocultamos la caja de consola de diagnóstico porque todo salió bien
+                    debugBox.style.display = "none";
 
-                    const card = document.createElement("div");
-                    card.className = "card";
-                    card.innerHTML = `
-                        <div class="card-image-wrapper" onclick="abrirModal('img/${imagen}')" title="Ampliar imagen">
-                            <img src="img/${imagen}" alt="${nombre}" onerror="this.src='https://via.placeholder.com/200?text=Error+Imagen'">
-                        </div>
-                        <h3>${nombre}</h3>
-                        <div class="price">${precio}</div>
-                        <p>${descripcion}</p>
-                        <a href="https://wa.me/${numeroWhatsApp}?text=${textoMensaje}" class="btn-whatsapp" target="_blank">Consultar por WhatsApp</a>
-                    `;
-                    contenedor.appendChild(card);
+                    productos.forEach((prod) => {
+                        const imagen = prod.imagen ? String(prod.imagen).trim() : '';
+                        const nombre = prod.nombre ? String(prod.nombre).trim() : 'Producto';
+                        let precio = prod.precio !== undefined ? prod.precio : 'Consultar';
+                        
+                        if (typeof precio === 'number') {
+                            precio = '$' + precio.toLocaleString('es-AR');
+                        } else {
+                            precio = '$' + precio;
+                        }
+
+                        const descripcion = prod.descripcion ? String(prod.descripcion).trim() : '';
+                        const urlFoto = window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1) + `img/${imagen}`;
+                        const textoMensaje = encodeURIComponent(`Hola, me interesa el producto: ${nombre} (${precio}). Vi esta foto: ${urlFoto}`);
+
+                        const card = document.createElement("div");
+                        card.className = "card";
+                        card.innerHTML = `
+                            <div class="card-image-wrapper" onclick="abrirModal('img/${imagen}')" title="Ampliar imagen">
+                                <img src="img/${imagen}" alt="${nombre}" onerror="this.src='https://via.placeholder.com/200?text=Error+Imagen'">
+                            </div>
+                            <h3>${nombre}</h3>
+                            <div class="price">${precio}</div>
+                            <p>${descripcion}</p>
+                            <a href="https://wa.me/${numeroWhatsApp}?text=${textoMensaje}" class="btn-whatsapp" target="_blank">Consultar por WhatsApp</a>
+                        `;
+                        contenedor.appendChild(card);
+                    });
+                })
+                .catch(error => {
+                    log("❌ ERROR CAPTURADO: " + error.message);
+                    console.error(error);
                 });
-            })
-            .catch(error => {
-                log("❌ ERROR CAPTURADO: " + error.message);
-                console.error(error);
-            });
+        }, 300);
 
         // Lógica del Modal
         const modal = document.getElementById("imageModal");
