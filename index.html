@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Relojes Oscar | Catálogo Exclusivo</title>
+    <title>RelojesOscar | Catálogo Exclusivo</title>
     <!-- Fuente moderna e importada de Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Librería XLSX principal -->
@@ -47,7 +47,7 @@
             height: 100%;
             background-image: url('fondo.jpg');
             background-repeat: repeat;
-            opacity: 0.05; /* Si quieres que se note un poco más, puedes subirlo a 0.08 o 0.1 */
+            opacity: 0.05;
             z-index: -1;
             pointer-events: none;
         }
@@ -277,8 +277,9 @@
                         }
 
                         const descripcion = prod.descripcion ? String(prod.descripcion).trim() : '';
-                        const urlFoto = window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1) + `img/${imagen}`;
-                        const textoMensaje = encodeURIComponent(`Hola, me interesa el producto: ${nombre} (${precio}). Vi esta foto: ${urlFoto}`);
+                        
+                        // Mensaje ordenado por renglones con el nombre, precio y archivo de referencia
+                        const textoMensaje = encodeURIComponent(`Hola! Me interesa este producto:\n\n*${nombre}*\nPrecio: ${precio}\nRef: img/${imagen}`);
 
                         const card = document.createElement("div");
                         card.className = "card";
