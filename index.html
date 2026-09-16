@@ -132,7 +132,6 @@
                     const productos = XLSX.utils.sheet_to_json(worksheet);
 
                     productos.forEach((prod) => {
-                        // Validación ultra estricta: si no hay imagen, salta a la siguiente fila
                         if (!prod.imagen) return;
                         const imagen = String(prod.imagen).trim();
                         if (imagen === "" || imagen.toLowerCase() === "undefined" || imagen.toLowerCase() === "null") return;
@@ -152,9 +151,10 @@
 
                         const card = document.createElement("div");
                         card.className = "card";
+                        // Si la imagen no se encuentra en la carpeta img, borra toda la tarjeta automáticamente
                         card.innerHTML = `
                             <div class="card-image-wrapper" onclick="abrirModal('img/${imagen}')" title="Ampliar imagen">
-                                <img src="img/${imagen}" alt="${nombre}" onerror="this.src='https://via.placeholder.com/200?text=Error+Imagen'">
+                                <img src="img/${imagen}" alt="${nombre}" onerror="this.closest('.card').remove();">
                             </div>
                             <h3>${nombre}</h3>
                             <div class="price">${precio}</div>
