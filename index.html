@@ -4,9 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RelojesOscar</title>
-    <!-- Librería XLSX principal (cdnjs - más compatible) -->
+    <!-- Librería XLSX principal -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-    <!-- Respaldo automático por si el navegador bloquea la primera -->
     <script>
         if (typeof XLSX === 'undefined') {
             var backupScript = document.createElement('script');
@@ -17,21 +16,8 @@
     <style>
         body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background: #f4f4f9; }
         h1 { text-align: center; color: #333; margin-bottom: 10px; }
-        p.subtitle { text-align: center; color: #666; margin-bottom: 20px; }
+        p.subtitle { text-align: center; color: #666; margin-bottom: 30px; }
         
-        #debug-box {
-            max-width: 600px;
-            margin: 0 auto 20px auto;
-            background: #222;
-            color: #0f0;
-            padding: 15px;
-            border-radius: 6px;
-            font-family: monospace;
-            font-size: 13px;
-            white-space: pre-wrap;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-        }
-
         .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; max-width: 1200px; margin: 0 auto; }
         .card { background: #fff; border-radius: 8px; padding: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); text-align: center; display: flex; flex-direction: column; justify-content: space-between; }
         
@@ -60,6 +46,18 @@
         .price { font-weight: bold; color: #27ae60; font-size: 1.2em; margin: 10px 0; }
         .btn-whatsapp { display: inline-block; background: #25d366; color: white; padding: 8px 15px; border-radius: 5px; text-decoration: none; font-weight: bold; margin-top: 10px; }
         .btn-whatsapp:hover { background: #20ba5a; }
+
+        #error-msg {
+            max-width: 600px;
+            margin: 20px auto;
+            background: #ffebee;
+            color: #c62828;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+            display: none;
+            font-weight: bold;
+        }
 
         /* VENTANA FLOTANTE (MODAL) */
         .modal {
@@ -103,9 +101,7 @@
     <h1>RelojesOscar</h1>
     <p class="subtitle">Toca cualquier imagen para ampliarla. Toca "Consultar por WhatsApp" para enviar el modelo y la foto.</p>
 
-    <!-- CAJA DE DIAGNÓSTICO -->
-    <div id="debug-box">Iniciando sistema...</div>
-
+    <div id="error-msg"></div>
     <div class="grid" id="catalogo-productos"></div>
 
     <!-- MODAL -->
@@ -115,56 +111,32 @@
     </div>
 
     <script>
-        const debugBox = document.getElementById("debug-box");
-        function log(mensaje) {
-            console.log(mensaje);
-            debugBox.innerText += "\n> " + mensaje;
-        }
-
-        // Damos un pequeño respiro para que el respaldo cargue si hizo falta
         setTimeout(() => {
-            log("Verificando librería XLSX...");
             if (typeof XLSX === 'undefined') {
-                log("❌ ERROR CRÍTICO: La librería XLSX sigue bloqueada. Revisa tu AdBlock.");
+                document.getElementById("error-msg").style.display = "block";
+                document.getElementById("error-msg").innerText = "Error: No se pudo cargar la librería para leer el Excel.";
                 return;
-            } else {
-                log("✔️ Librería XLSX cargada correctamente.");
             }
 
             const numeroWhatsApp = "5491159828985";
             const contenedor = document.getElementById("catalogo-productos");
             
-            log("Intentando descargar 'Descripcion.xlsx'...");
-            
             fetch('./Descripcion.xlsx')
                 .then(response => {
-                    log("Respuesta del servidor recibida. Status: " + response.status);
-                    if (!response.ok) {
-                        throw new Error("No se encontró el archivo 'Descripcion.xlsx' (Código HTTP: " + response.status + ")");
-                    }
+                    if (!response.ok) throw new Error("No se encontró el archivo Descripcion.xlsx");
                     return response.arrayBuffer();
                 })
                 .then(data => {
-                    log("✔️ Archivo descargado con éxito. Procesando Excel...");
                     const workbook = XLSX.read(data, { type: 'array' });
-                    log("Hojas encontradas: " + workbook.SheetNames.join(", "));
-                    
-                    const firstSheetName = workbook.SheetNames[0];
-                    const worksheet = workbook.Sheets[firstSheetName];
-                    
+                    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
                     const productos = XLSX.utils.sheet_to_json(worksheet);
-                    log("✔️ Productos leídos: " + productos.length);
-
-                    if (productos.length === 0) {
-                        log("⚠️ El Excel está vacío o las columnas no tienen formato de tabla.");
-                        return;
-                    }
-
-                    // Ocultamos la caja de consola de diagnóstico porque todo salió bien
-                    debugBox.style.display = "none";
 
                     productos.forEach((prod) => {
                         const imagen = prod.imagen ? String(prod.imagen).trim() : '';
+                        
+                        // SI NO HAY FOTO, IGNORA COMPLETAMENTE ESTA FILA
+                        if (!imagen) return;
+
                         const nombre = prod.nombre ? String(prod.nombre).trim() : 'Producto';
                         let precio = prod.precio !== undefined ? prod.precio : 'Consultar';
                         
@@ -193,7 +165,6 @@
                     });
                 })
                 .catch(error => {
-                    log("❌ ERROR CAPTURADO: " + error.message);
                     console.error(error);
                 });
         }, 300);
