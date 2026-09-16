@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RelojesOscar | Catálogo Exclusivo</title>
+    <title>Relojes Oscar | Catálogo Exclusivo</title>
     <!-- Fuente moderna e importada de Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Librería XLSX principal -->
@@ -33,6 +33,23 @@
             padding: 0 0 50px 0; 
             background: var(--bg-color); 
             color: var(--text-main);
+            position: relative;
+            min-height: 100vh;
+        }
+
+        /* PATRÓN DE FONDO SUTIL */
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url('fondo.jpg');
+            background-repeat: repeat;
+            opacity: 0.05; /* Si quieres que se note un poco más, puedes subirlo a 0.08 o 0.1 */
+            z-index: -1;
+            pointer-events: none;
         }
 
         /* ENCABEZADO ESTILO BOUTIQUE */
