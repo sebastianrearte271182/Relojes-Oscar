@@ -132,10 +132,10 @@
                     const productos = XLSX.utils.sheet_to_json(worksheet);
 
                     productos.forEach((prod) => {
-                        const imagen = prod.imagen ? String(prod.imagen).trim() : '';
-                        
-                        // SI NO HAY FOTO, IGNORA COMPLETAMENTE ESTA FILA
-                        if (!imagen) return;
+                        // Validación ultra estricta: si no hay imagen, salta a la siguiente fila
+                        if (!prod.imagen) return;
+                        const imagen = String(prod.imagen).trim();
+                        if (imagen === "" || imagen.toLowerCase() === "undefined" || imagen.toLowerCase() === "null") return;
 
                         const nombre = prod.nombre ? String(prod.nombre).trim() : 'Producto';
                         let precio = prod.precio !== undefined ? prod.precio : 'Consultar';
